@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alien UFO Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+        }
+        #gameCanvas {
+            display: block;
+            background-color: #111;
+        }
+        #restartButton {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <button id="restartButton">Restart Game</button>
+    
+    <!-- Audio element for hit sound -->
+    <audio id="hitSound">
+        <source src="alien-sound-88702.mp3" type="audio/mp3">
+    </audio>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const restartButton = document.getElementById('restartButton');
+        const hitSound = document.getElementById('hitSound'); // Access the hit sound
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let ufoImg = new Image();
+        ufoImg.src = 'ufo-Photoroom.png'; // Insert UFO image here
+
+        let alienImg = new Image();
+        alienImg.src = 'standing-humanoid-alien-POnGk4A-600-Photoroom.png'; // Insert alien image here
+
+        let ufo = {
+            x: 50,
+            y: canvas.height / 2 - 25,
+            width: 50,
+            height: 50,
+            speed: 8
+        };
+
+        let bullets = [];
+        let aliens = [];
+        let gameOver = false;
+        let shootingInterval;
+        let spawnInterval;
+
+        // Track key states for continuous movement
+        let keys = {
+            w: false,
+            s: false
+        };
+
+        // Restart the game
+        function restartGame() {
+            ufo.y = canvas.height / 2 - 25;
+            bullets = [];
+            aliens = [];
+            gameOver = false;
+            restartButton.style.display = 'none';
+            startGame(); // Restart shooting and spawning aliens
+        }
+
+        // Alien generation in a straight line, 12 aliens at a time
+        function spawnAliens() {
+            spawnInterval = setInterval(() => {
+                if (!gameOver) {
+                    for (let i = 0; i < 7; i++) { // Spawn 12 aliens
+                        aliens.push({
+                            x: canvas.width,
+                            y: i * 100, // Increased Y position for longer spacing (60px apart)
+                            width: 40,
+                            height: 40,
+                            speed: 3
+                        });
+                    }
+                }
+            }, 3000); // Spawn every 3 seconds
+        }
+
+        // Draw UFO with image
+        function drawUFO() {
+            ctx.drawImage(ufoImg, ufo.x, ufo.y, ufo.width, ufo.height);
+        }
+
+        // Draw aliens with image
+        function drawAliens() {
+            aliens.forEach((alien, index) => {
+                ctx.drawImage(alienImg, alien.x, alien.y, alien.width, alien.height);
+                alien.x -= alien.speed;
+
+                // Check for collision with UFO
+                if (alien.x < ufo.x + ufo.width &&
+                    alien.x + alien.width > ufo.x &&
+                    alien.y < ufo.y + ufo.height &&
+                    alien.y + alien.height > ufo.y) {
+                    endGame();
+                }
+
+                // End game if alien touches the left side of the screen
+                if (alien.x + alien.width < 0) {
+                    endGame();
+                }
+            });
+        }
+
+        // Draw bullets
+        function drawBullets() {
+            ctx.fillStyle = "green";
+            bullets.forEach((bullet, index) => {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                bullet.x += 10;
+
+                // Remove bullet when off-screen
+                if (bullet.x > canvas.width) {
+                    bullets.splice(index, 1);
+                }
+
+                // Check for collision with aliens
+                aliens.forEach((alien, aIndex) => {
+                    if (bullet.x < alien.x + alien.width &&
+                        bullet.x + bullet.width > alien.x &&
+                        bullet.y < alien.y + alien.height &&
+                        bullet.y + bullet.height > alien.y) {
+                        aliens.splice(aIndex, 1);
+                        bullets.splice(index, 1);
+                        
+                        // Play hit sound
+                        hitSound.play();
+                    }
+                });
+            });
+        }
+
+        // Handle keyboard input: Keydown
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'w') {
+                keys.w = true;
+            } else if (e.key === 's') {
+                keys.s = true;
+            }
+        });
+
+        // Handle keyboard input: Keyup
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'w') {
+                keys.w = false;
+            } else if (e.key === 's') {
+                keys.s = false;
+            }
+        });
+
+        // Move UFO based on key states
+        function moveUFO() {
+            if (keys.w && ufo.y > 0) {
+                ufo.y -= ufo.speed;
+            }
+            if (keys.s && ufo.y + ufo.height < canvas.height) {
+                ufo.y += ufo.speed;
+            }
+        }
+
+        // Automatic shooting
+        function startShooting() {
+            shootingInterval = setInterval(() => {
+                bullets.push({
+                    x: ufo.x + ufo.width,
+                    y: ufo.y + ufo.height / 2 - 5,
+                    width: 10,
+                    height: 10
+                });
+            }, 500); // Shoot every 500 milliseconds
+        }
+
+        // End the game
+        function endGame() {
+            gameOver = true;
+            clearInterval(shootingInterval);
+            clearInterval(spawnInterval);
+            restartButton.style.display = 'block';
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (gameOver) {
+                ctx.fillStyle = "white";
+                ctx.font = "50px Arial";
+                ctx.fillText("Game Over", canvas.width / 2 - 150, canvas.height / 2);
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            moveUFO();
+            drawUFO();
+            drawBullets();
+            drawAliens();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        function startGame() {
+            startShooting();
+            spawnAliens();
+            gameLoop();
+        }
+
+        // Restart button listener
+        restartButton.addEventListener('click', restartGame);
+
+        startGame(); // Begin the game immediately
+    </script>
+</body>
+</html>
